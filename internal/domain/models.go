@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Tick represents a single market data point
 type Tick struct {
@@ -52,13 +55,13 @@ type AggregatedData struct {
 type Provider interface {
 	// Name returns the exchange name
 	Name() string
-	
+
 	// Connect establishes the WebSocket connection
 	Connect(ctx context.Context) error
-	
+
 	// Subscribe starts streaming ticks for given symbols
 	Subscribe(symbols []string) (<-chan *Tick, <-chan error)
-	
+
 	// Close gracefully shuts down the connection
 	Close() error
 }

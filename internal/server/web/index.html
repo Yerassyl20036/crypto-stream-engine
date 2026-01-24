@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Stream Engine - Real-Time Market Data</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .status.connected {
+            color: #4ade80;
+        }
+        
+        .status.disconnected {
+            color: #f87171;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .price-grid {
+            display: grid;
+            gap: 10px;
+        }
+        
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .price-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .exchange {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .price {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+        
+        .metric-label {
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-family: 'Courier New', monospace;
+        }
+        
+        .alerts-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .alert {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .alert.MEDIUM {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: #fbbf24;
+        }
+        
+        .alert.HIGH {
+            background: rgba(249, 115, 22, 0.2);
+            border-color: #f97316;
+        }
+        
+        .alert.CRITICAL {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .alert-time {
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.6;
+            font-style: italic;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Crypto Stream Engine</h1>
+        <div id="status" class="status disconnected pulse">Connecting to server...</div>
+        
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>📡 Exchange Status</h2>
+            <div id="exchange-status" class="price-grid">
+                <div class="no-data">Waiting for data...</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>BTC/USDT</h2>
+                <div id="btc-prices" class="price-grid">
+                    <div class="no-data">Waiting for data...</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="metric">
+                        <span class="metric-label">VWAP:</span>
+                        <span id="btc-vwap" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Spread:</span>
+                        <span id="btc-spread" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span id="btc-volatility" class="metric-value">—</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>ETH/USDT</h2>
+                <div id="eth-prices" class="price-grid">
+                    <div class="no-data">Waiting for data...</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="metric">
+                        <span class="metric-label">VWAP:</span>
+                        <span id="eth-vwap" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Spread:</span>
+                        <span id="eth-spread" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span id="eth-volatility" class="metric-value">—</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>BNB/USDT</h2>
+                <div id="bnb-prices" class="price-grid">
+                    <div class="no-data">Waiting for data...</div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="metric">
+                        <span class="metric-label">VWAP:</span>
+                        <span id="bnb-vwap" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Spread:</span>
+                        <span id="bnb-spread" class="metric-value">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Volatility:</span>
+                        <span id="bnb-volatility" class="metric-value">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🚨 Real-Time Alerts</h2>
+            <div id="alerts" class="alerts-container">
+                <div class="no-data">No alerts yet</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global state
+        let ws = null;
+        let reconnectInterval = 1000;
+        const maxAlerts = 20;
+        const exchangeStatus = new Set();
+        
+        // Initialize
+        connect();
+        
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            console.log('Connecting to:', wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('✓ WebSocket connected');
+                document.getElementById('status').textContent = '✓ Connected to server';
+                document.getElementById('status').className = 'status connected';
+                reconnectInterval = 1000;
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    // Handle multiple JSON objects separated by newlines
+                    const messages = event.data.trim().split('\n').filter(m => m.length > 0);
+                    
+                    messages.forEach(msgStr => {
+                        try {
+                            const message = JSON.parse(msgStr);
+                            console.log('Received message:', message.type, message);
+                            
+                            if (message.type === 'aggregated') {
+                                updateAggregatedData(message.data);
+                            } else if (message.type === 'alert') {
+                                addAlert(message.data);
+                            }
+                        } catch (parseErr) {
+                            console.error('JSON parse error for message:', msgStr, parseErr);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error processing messages:', e, 'Raw data:', event.data);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket closed. Reconnecting...');
+                document.getElementById('status').textContent = '⚠ Disconnected. Reconnecting...';
+                document.getElementById('status').className = 'status disconnected pulse';
+                
+                setTimeout(connect, reconnectInterval);
+                reconnectInterval = Math.min(reconnectInterval * 1.5, 30000);
+            };
+        }
+        
+        function updateExchangeStatus() {
+            const statusEl = document.getElementById('exchange-status');
+            if (!statusEl) {
+                console.warn('Exchange status element not found');
+                return;
+            }
+            
+            const exchanges = ['binance', 'coinbase', 'bybit', 'okx'];
+            
+            const statusHTML = exchanges.map(exchange => {
+                const isActive = exchangeStatus.has(exchange);
+                const statusColor = isActive ? '#4ade80' : '#6b7280';
+                const statusText = isActive ? '● Online' : '○ Waiting';
+                
+                return `
+                    <div class="price-item">
+                        <span class="exchange">${exchange}</span>
+                        <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            statusEl.innerHTML = statusHTML;
+        }
+        
+        function updateAggregatedData(data) {
+            if (!data || !data.symbol) {
+                console.warn('Invalid aggregated data:', data);
+                return;
+            }
+            
+            console.log('Processing aggregated data:', data);
+            
+            // Extract symbol: BTCUSDT -> btc, ETHUSDT -> eth, BNBUSDT -> bnb
+            let symbol = data.symbol.toUpperCase();
+            let shortSymbol = '';
+            
+            if (symbol === 'BTCUSDT') shortSymbol = 'btc';
+            else if (symbol === 'ETHUSDT') shortSymbol = 'eth';
+            else if (symbol === 'BNBUSDT') shortSymbol = 'bnb';
+            else {
+                // Generic fallback: remove USDT suffix
+                shortSymbol = symbol.replace('USDT', '').toLowerCase();
+            }
+            
+            console.log('Symbol mapping:', symbol, '->', shortSymbol);
+            
+            // Update exchange status
+            if (data.prices) {
+                Object.keys(data.prices).forEach(exchange => {
+                    exchangeStatus.add(exchange);
+                });
+                updateExchangeStatus();
+            }
+            
+            // Update prices
+            const pricesEl = document.getElementById(`${shortSymbol}-prices`);
+            if (pricesEl && data.prices && Object.keys(data.prices).length > 0) {
+                const pricesHTML = Object.entries(data.prices)
+                    .map(([exchange, price]) => `
+                        <div class="price-item">
+                            <span class="exchange">${exchange}</span>
+                            <span class="price">$${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                    `).join('');
+                
+                pricesEl.innerHTML = pricesHTML;
+                console.log(`✓ Updated ${shortSymbol} prices from`, Object.keys(data.prices).length, 'exchanges');
+            } else {
+                console.warn(`Could not update prices for ${shortSymbol}:`, {
+                    element: pricesEl,
+                    hasPrices: !!data.prices,
+                    priceCount: data.prices ? Object.keys(data.prices).length : 0
+                });
+            }
+            
+            // Update VWAP
+            const vwapEl = document.getElementById(`${shortSymbol}-vwap`);
+            if (vwapEl && data.vwap != null) {
+                vwapEl.textContent = `$${data.vwap.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                console.log(`✓ Updated ${shortSymbol} VWAP:`, data.vwap);
+            }
+            
+            // Update Spread
+            const spreadEl = document.getElementById(`${shortSymbol}-spread`);
+            if (spreadEl && data.spread != null) {
+                spreadEl.textContent = `${data.spread.toFixed(3)}%`;
+                console.log(`✓ Updated ${shortSymbol} Spread:`, data.spread);
+            }
+            
+            // Update Volatility
+            const volatilityEl = document.getElementById(`${shortSymbol}-volatility`);
+            if (volatilityEl && data.volatility != null) {
+                volatilityEl.textContent = data.volatility.toFixed(4);
+                console.log(`✓ Updated ${shortSymbol} Volatility:`, data.volatility);
+            }
+        }
+        
+        function addAlert(alert) {
+            const alertsContainer = document.getElementById('alerts');
+            if (!alertsContainer) return;
+            
+            // Remove "no alerts" message
+            const noData = alertsContainer.querySelector('.no-data');
+            if (noData) {
+                noData.remove();
+            }
+            
+            const alertEl = document.createElement('div');
+            alertEl.className = `alert ${alert.severity || 'MEDIUM'}`;
+            
+            const time = new Date(alert.timestamp).toLocaleTimeString();
+            
+            alertEl.innerHTML = `
+                <div class="alert-header">
+                    <span>${alert.type} - ${alert.symbol}</span>
+                    <span class="alert-time">${time}</span>
+                </div>
+                <div>${alert.message}</div>
+            `;
+            
+            // Add to top
+            alertsContainer.insertBefore(alertEl, alertsContainer.firstChild);
+            
+            // Limit number of alerts
+            while (alertsContainer.children.length > maxAlerts) {
+                alertsContainer.removeChild(alertsContainer.lastChild);
+            }
+            
+            console.log('✓ Added alert:', alert.type, alert.message);
+        }
+    </script>
+</body>
+</html>
