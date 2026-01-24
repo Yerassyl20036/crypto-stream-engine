@@ -41,7 +41,7 @@ func Load() *Config {
 		VolatilityWindowSeconds: getEnvInt("VOLATILITY_WINDOW_SECONDS", 10),
 		SpreadThresholdPercent:  getEnvFloat("SPREAD_THRESHOLD_PERCENT", 0.5),
 		VolatilityMultiplier:    getEnvFloat("VOLATILITY_MULTIPLIER", 3.0),
-		Symbols:                 []string{"BTCUSDT", "ETHUSDT", "BNBUSDT"},
+		Symbols:                 []string{"BTCUSDT", "ETHUSDT"},
 		ShutdownTimeout:         getEnvDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
 	}
 }
