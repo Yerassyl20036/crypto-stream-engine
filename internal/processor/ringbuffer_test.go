@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -112,5 +113,39 @@ func TestRingBufferThreadSafety(t *testing.T) {
 	// Wait for all goroutines
 	for i := 0; i < 20; i++ {
 		<-done
+	}
+}
+
+func TestRingBufferMeanAfterWrap(t *testing.T) {
+	rb := NewRingBuffer(3)
+	now := time.Now()
+
+	rb.Add(1, 1, now)
+	rb.Add(2, 1, now)
+	rb.Add(3, 1, now)
+
+	if got := rb.Mean(); got != 2 {
+		t.Fatalf("expected mean 2, got %f", got)
+	}
+
+	rb.Add(10, 1, now) // evicts 1, active set should be [2,3,10]
+
+	if got := rb.Mean(); got != 5 {
+		t.Fatalf("expected mean 5 after wrap, got %f", got)
+	}
+}
+
+func TestRingBufferStdDevAfterWrap(t *testing.T) {
+	rb := NewRingBuffer(3)
+	now := time.Now()
+
+	rb.Add(1, 1, now)
+	rb.Add(2, 1, now)
+	rb.Add(3, 1, now)
+	rb.Add(10, 1, now) // active set: [2,3,10]
+
+	variance := rb.StdDev()
+	if math.Abs(variance-12.6666666667) > 1e-9 {
+		t.Fatalf("expected variance ~12.6666666667, got %f", variance)
 	}
 }

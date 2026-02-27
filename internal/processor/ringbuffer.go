@@ -22,9 +22,11 @@ type RingBuffer struct {
 	full   bool // Whether we've wrapped around
 
 	// Cached aggregates for O(1) access
-	priceSum  float64
-	volumeSum float64
-	count     int
+	weightedPriceSum float64
+	priceSum         float64
+	priceSquaresSum  float64
+	volumeSum        float64
+	count            int
 }
 
 // NewRingBuffer creates a ring buffer with the given capacity
@@ -50,7 +52,9 @@ func (rb *RingBuffer) Add(price, volume float64, ts time.Time) (evicted *PricePo
 		}
 
 		// Update cached sums by removing old value
-		rb.priceSum -= evicted.Price * evicted.Volume
+		rb.weightedPriceSum -= evicted.Price * evicted.Volume
+		rb.priceSum -= evicted.Price
+		rb.priceSquaresSum -= evicted.Price * evicted.Price
 		rb.volumeSum -= evicted.Volume
 	} else {
 		rb.count++
@@ -64,7 +68,9 @@ func (rb *RingBuffer) Add(price, volume float64, ts time.Time) (evicted *PricePo
 	}
 
 	// Update cached sums
-	rb.priceSum += price * volume
+	rb.weightedPriceSum += price * volume
+	rb.priceSum += price
+	rb.priceSquaresSum += price * price
 	rb.volumeSum += volume
 
 	// Advance head
@@ -84,7 +90,7 @@ func (rb *RingBuffer) VWAP() float64 {
 	if rb.volumeSum == 0 {
 		return 0
 	}
-	return rb.priceSum / rb.volumeSum
+	return rb.weightedPriceSum / rb.volumeSum
 }
 
 // Mean calculates simple average price in O(1)
@@ -96,11 +102,7 @@ func (rb *RingBuffer) Mean() float64 {
 		return 0
 	}
 
-	sum := 0.0
-	for i := 0; i < rb.count; i++ {
-		sum += rb.buffer[i].Price
-	}
-	return sum / float64(rb.count)
+	return rb.priceSum / float64(rb.count)
 }
 
 // StdDev calculates standard deviation for volatility detection
@@ -113,15 +115,11 @@ func (rb *RingBuffer) StdDev() float64 {
 		return 0
 	}
 
-	mean := rb.Mean()
-	variance := 0.0
-
-	for i := 0; i < rb.count; i++ {
-		diff := rb.buffer[i].Price - mean
-		variance += diff * diff
+	mean := rb.priceSum / float64(rb.count)
+	variance := (rb.priceSquaresSum / float64(rb.count)) - (mean * mean)
+	if variance < 0 {
+		return 0
 	}
-
-	variance /= float64(rb.count)
 	return variance // Return variance; caller can sqrt() if needed
 }
 

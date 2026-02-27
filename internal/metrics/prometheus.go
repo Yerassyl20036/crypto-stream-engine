@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -66,11 +68,22 @@ var (
 		},
 		[]string{"reason"},
 	)
+
+	messagesProcessedCache  sync.Map
+	alertsGeneratedCache    sync.Map
+	droppedMessagesCache    sync.Map
+	channelUtilizationCache sync.Map
 )
 
 // IncrementMessagesProcessed increments the message counter
 func IncrementMessagesProcessed(exchange, symbol string) {
-	messagesProcessed.WithLabelValues(exchange, symbol).Inc()
+	key := exchange + "\x00" + symbol
+	counter, ok := messagesProcessedCache.Load(key)
+	if !ok {
+		created, _ := messagesProcessedCache.LoadOrStore(key, messagesProcessed.WithLabelValues(exchange, symbol))
+		counter = created
+	}
+	counter.(prometheus.Counter).Inc()
 }
 
 // RecordProcessingLatency records a processing duration
@@ -85,7 +98,13 @@ func SetActiveWorkers(count int) {
 
 // IncrementAlertsGenerated increments alert counter
 func IncrementAlertsGenerated(alertType, severity string) {
-	alertsGenerated.WithLabelValues(alertType, severity).Inc()
+	key := alertType + "\x00" + severity
+	counter, ok := alertsGeneratedCache.Load(key)
+	if !ok {
+		created, _ := alertsGeneratedCache.LoadOrStore(key, alertsGenerated.WithLabelValues(alertType, severity))
+		counter = created
+	}
+	counter.(prometheus.Counter).Inc()
 }
 
 // IncrementWSConnections increments WebSocket connection count
@@ -100,10 +119,20 @@ func DecrementWSConnections() {
 
 // SetChannelUtilization sets channel buffer usage percentage
 func SetChannelUtilization(channelType string, percent float64) {
-	channelUtilization.WithLabelValues(channelType).Set(percent)
+	gauge, ok := channelUtilizationCache.Load(channelType)
+	if !ok {
+		created, _ := channelUtilizationCache.LoadOrStore(channelType, channelUtilization.WithLabelValues(channelType))
+		gauge = created
+	}
+	gauge.(prometheus.Gauge).Set(percent)
 }
 
 // IncrementDroppedMessages increments dropped message counter
 func IncrementDroppedMessages(reason string) {
-	droppedMessages.WithLabelValues(reason).Inc()
+	counter, ok := droppedMessagesCache.Load(reason)
+	if !ok {
+		created, _ := droppedMessagesCache.LoadOrStore(reason, droppedMessages.WithLabelValues(reason))
+		counter = created
+	}
+	counter.(prometheus.Counter).Inc()
 }

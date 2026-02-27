@@ -139,6 +139,7 @@ Configuration is managed through environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `CONFIG_PREFIX` | `` | Prefix for config keys (e.g. `CSE_` reads `CSE_HTTP_ADDR`) |
 | `HTTP_ADDR` | `:8080` | HTTP server address |
 | `WORKER_POOL_SIZE` | `10` | Number of processing workers |
 | `CHANNEL_BUFFER_SIZE` | `10000` | Size of the central channel buffer |
@@ -146,6 +147,7 @@ Configuration is managed through environment variables:
 | `VOLATILITY_WINDOW_SECONDS` | `10` | Volatility detection window |
 | `SPREAD_THRESHOLD_PERCENT` | `0.5` | Alert threshold for spread (%) |
 | `VOLATILITY_MULTIPLIER` | `3.0` | Volatility spike multiplier |
+| `SYMBOLS` | `BTCUSDT,ETHUSDT` | Comma-separated symbol list |
 | `SHUTDOWN_TIMEOUT` | `30s` | Graceful shutdown timeout |
 
 Example:
